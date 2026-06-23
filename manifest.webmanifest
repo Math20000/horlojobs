@@ -1,0 +1,10 @@
+{
+  "name": "HorloJobs — Offres en horlogerie",
+  "short_name": "HorloJobs",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f7",
+  "theme_color": "#0b3f46",
+  "lang": "fr",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
