@@ -3,6 +3,8 @@ const $ = (selector) => document.querySelector(selector);
 
 function escapeHtml(value) { const node = document.createElement('span'); node.textContent = value || ''; return node.innerHTML; }
 function saveFavorites() { localStorage.setItem('horlojobs-favorites', JSON.stringify([...state.favorites])); }
+function toggleFavorite(job) { state.favorites.has(job.id) ? state.favorites.delete(job.id) : state.favorites.add(job.id); saveFavorites(); render(); }
+function selectFilter(filter) { state.filter = filter; document.querySelectorAll('.filter').forEach((item) => item.classList.toggle('active', item.dataset.filter === filter)); render(); }
 function readableDate(value) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? 'mise à jour récente' : `mis à jour le ${date.toLocaleDateString('fr-FR', { day:'2-digit', month:'long' })} à ${date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`; }
 function jobMatches(job) { const query = state.query.toLocaleLowerCase('fr'); const text = [job.title, job.company, job.location, job.source, job.reason].join(' ').toLocaleLowerCase('fr'); return (!query || text.includes(query)) && (!state.source || job.source === state.source) && (state.filter !== 'new' || job.isNew) && (state.filter !== 'favorites' || state.favorites.has(job.id)); }
 function orderedJobs() { return state.jobs.filter(jobMatches).sort((a,b) => { if (state.sort === 'new') return Number(b.isNew) - Number(a.isNew) || b.score - a.score; if (state.sort === 'company') return a.company.localeCompare(b.company, 'fr'); return b.score - a.score; }); }
@@ -26,12 +28,20 @@ function mapPopup(group) {
   const hint = document.createElement('p'); hint.textContent = group.jobs.length > 1 ? 'Choisis une offre :' : 'Ouvre l’offre directement :'; popup.append(hint);
   const list = document.createElement('div'); list.className = 'map-offer-list';
   group.jobs.forEach((job) => {
+    const row = document.createElement('div'); row.className = 'map-offer-row';
     const link = document.createElement('a'); link.className = 'map-offer-link'; link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
     const title = document.createElement('span'); title.textContent = job.title;
     const meta = document.createElement('small'); meta.textContent = `${job.company} · ${job.source}`;
-    link.append(title, meta); list.append(link);
+    const favorite = document.createElement('button'); favorite.type = 'button'; favorite.className = 'map-favorite'; const saved = state.favorites.has(job.id); favorite.textContent = saved ? '★' : '☆'; favorite.setAttribute('aria-label', saved ? `Retirer ${job.title} des favoris` : `Ajouter ${job.title} aux favoris`); favorite.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleFavorite(job); });
+    link.append(title, meta); row.append(link, favorite); list.append(row);
   });
   popup.append(list); return popup;
+}
+
+function openOfferFromMap(job) {
+  const tab = window.open(job.url, '_blank');
+  if (tab) tab.opener = null;
+  else window.location.assign(job.url);
 }
 
 function renderMap(jobs) {
@@ -44,7 +54,9 @@ function renderMap(jobs) {
   const bounds = [];
   groups.forEach((group) => {
     const marker = L.circleMarker([group.lat, group.lon], { radius: group.jobs.length > 1 ? 10 : 8, color: '#ffffff', weight: 2, fillColor: group.jobs.some((job) => job.isNew) ? '#087443' : '#075985', fillOpacity: 1 });
-    marker.bindPopup(mapPopup(group)).addTo(state.markers); bounds.push([group.lat, group.lon]);
+    if (group.jobs.length === 1) marker.on('click', () => openOfferFromMap(group.jobs[0]));
+    else marker.bindPopup(mapPopup(group));
+    marker.addTo(state.markers); bounds.push([group.lat, group.lon]);
   });
   if (bounds.length === 1) state.map.setView(bounds[0], 9); else if (bounds.length > 1) state.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 9 }); else state.map.setView([46.6, 2.4], 5);
   setTimeout(() => state.map.invalidateSize(), 0);
@@ -57,10 +69,19 @@ function render() {
   const template = $('#job-card-template');
   jobs.forEach((job) => {
     const node = template.content.cloneNode(true); const card = node.querySelector('.job-card'); card.classList.toggle('is-new', job.isNew); node.querySelector('.score').textContent = `${job.score}/100`; node.querySelector('.new-badge').hidden = !job.isNew; node.querySelector('.source-badge').textContent = job.source; node.querySelector('.title').textContent = job.title; node.querySelector('.company').textContent = job.company; node.querySelector('.location').textContent = job.location || 'Lieu à confirmer'; node.querySelector('.salary-mid').textContent = `Salaire moyen : ${job.salaryEstimate?.label || 'à estimer'}`; node.querySelector('.reason').textContent = job.reason || 'Correspondance avec ton profil horloger.';
-    const favorite = node.querySelector('.favorite'); const saved = state.favorites.has(job.id); favorite.classList.toggle('saved', saved); favorite.textContent = saved ? '♥' : '♡'; favorite.setAttribute('aria-label', saved ? 'Retirer des favoris' : 'Ajouter aux favoris'); favorite.addEventListener('click', () => { saved ? state.favorites.delete(job.id) : state.favorites.add(job.id); saveFavorites(); render(); });
+    const favorite = node.querySelector('.favorite'); const saved = state.favorites.has(job.id); favorite.classList.toggle('saved', saved); favorite.textContent = saved ? '★' : '☆'; favorite.setAttribute('aria-label', saved ? 'Retirer des favoris' : 'Ajouter aux favoris'); favorite.addEventListener('click', () => toggleFavorite(job));
     node.querySelector('.details').addEventListener('click', () => showDetails(job)); node.querySelector('.letter').addEventListener('click', () => showDetails(job, true)); const open = node.querySelector('.open'); open.href = job.url; list.append(node);
   });
-  $('#favorite-count').textContent = state.favorites.size; renderMap(jobs);
+  $('#favorite-count').textContent = state.favorites.size; renderFavoritesMenu(); renderMap(jobs);
+}
+
+function renderFavoritesMenu() {
+  const count = $('#favorites-menu-count'); const list = $('#favorites-menu-list'); if (!count || !list) return;
+  const favorites = state.jobs.filter((job) => state.favorites.has(job.id)).sort((a, b) => b.score - a.score);
+  count.textContent = String(favorites.length); list.replaceChildren();
+  if (!favorites.length) { const empty = document.createElement('p'); empty.textContent = 'Aucune offre sauvegardée pour le moment.'; list.append(empty); return; }
+  const showAll = document.createElement('button'); showAll.type = 'button'; showAll.className = 'favorites-show-all'; showAll.textContent = `Voir mes ${favorites.length} favori${favorites.length > 1 ? 's' : ''}`; showAll.addEventListener('click', () => { $('#favorites-menu').open = false; selectFilter('favorites'); }); list.append(showAll);
+  favorites.forEach((job) => { const item = document.createElement('button'); item.type = 'button'; item.className = 'favorite-menu-item'; const title = document.createElement('strong'); title.textContent = job.title; const meta = document.createElement('span'); meta.textContent = `${job.company} · ${job.location || job.countryLabel || 'Lieu à confirmer'}`; item.append(title, meta); item.addEventListener('click', () => { $('#favorites-menu').open = false; showDetails(job); }); list.append(item); });
 }
 
 function showDetails(job, openLetter = false) {
@@ -71,7 +92,7 @@ function showDetails(job, openLetter = false) {
 }
 
 function renderSources() { const list = $('#source-list'); list.replaceChildren(); (state.feed.sourceStatuses || []).forEach((source) => { const item = document.createElement('li'); item.textContent = `${source.source} : ${source.collected} offre(s) — ${source.state}`; list.append(item); }); }
-function setupFilters() { $('#search').addEventListener('input', (event) => { state.query = event.target.value.trim(); render(); }); $('#source-filter').addEventListener('change', (event) => { state.source = event.target.value; render(); }); $('#sort').addEventListener('change', (event) => { state.sort = event.target.value; render(); }); document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => { state.filter = button.dataset.filter; document.querySelectorAll('.filter').forEach((item) => item.classList.toggle('active', item === button)); render(); })); $('#close-dialog').addEventListener('click', () => $('#job-dialog').close()); $('#job-dialog').addEventListener('click', (event) => { if (event.target === $('#job-dialog')) $('#job-dialog').close(); }); $('#refresh-button').addEventListener('click', loadFeed); }
+function setupFilters() { $('#search').addEventListener('input', (event) => { state.query = event.target.value.trim(); render(); }); $('#source-filter').addEventListener('change', (event) => { state.source = event.target.value; render(); }); $('#sort').addEventListener('change', (event) => { state.sort = event.target.value; render(); }); document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => selectFilter(button.dataset.filter))); $('#close-dialog').addEventListener('click', () => $('#job-dialog').close()); $('#job-dialog').addEventListener('click', (event) => { if (event.target === $('#job-dialog')) $('#job-dialog').close(); }); $('#refresh-button').addEventListener('click', loadFeed); }
 async function loadFeed() { const refresh = $('#refresh-button'); refresh.disabled = true; refresh.textContent = '…'; try { const response = await fetch(`data/jobs.json?updated=${Date.now()}`, { cache: 'no-store' }); if (!response.ok) throw new Error('Rapport indisponible'); state.feed = await response.json(); state.jobs = state.feed.jobs || []; $('#total-offers').textContent = state.feed.summary?.offers ?? state.jobs.length; $('#new-offers').textContent = state.feed.summary?.newOffers ?? 0; $('#last-update').textContent = readableDate(state.feed.generatedAt); const select = $('#source-filter'); const selected = state.source; select.replaceChildren(new Option('Toutes les sources', '')); [...new Set(state.jobs.map((job) => job.source))].sort((a,b) => a.localeCompare(b, 'fr')).forEach((source) => select.add(new Option(source, source))); select.value = selected; renderSources(); render(); } catch (error) { $('#last-update').textContent = 'Le rapport sera disponible après la prochaine recherche.'; $('#result-count').textContent = 'Impossible de charger les offres pour le moment.'; console.error(error); } finally { refresh.disabled = false; refresh.textContent = '↻'; } }
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 setupFilters(); loadFeed();
