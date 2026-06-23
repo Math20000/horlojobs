@@ -35,8 +35,12 @@
       <div class="filters" role="group" aria-label="Filtre d’offres">
         <button type="button" class="filter active" data-filter="all">Toutes</button>
         <button type="button" class="filter" data-filter="new">Nouvelles</button>
-        <button type="button" class="filter" data-filter="favorites">Favoris</button>
+        <button type="button" class="filter" data-filter="favorites">★ Favoris</button>
       </div>
+      <details id="favorites-menu" class="favorites-menu">
+        <summary>★ Mes favoris <span id="favorites-menu-count" class="favorites-menu-count">0</span></summary>
+        <div id="favorites-menu-list" class="favorites-menu-list"></div>
+      </details>
     </section>
 
     <section class="map-panel" aria-label="Carte des offres affichées">
@@ -61,7 +65,7 @@
 
   <template id="job-card-template">
     <article class="job-card">
-      <div class="job-card-top"><span class="score"></span><button class="favorite" type="button" aria-label="Ajouter aux favoris">♡</button></div>
+      <div class="job-card-top"><span class="score"></span><button class="favorite" type="button" aria-label="Ajouter aux favoris">☆</button></div>
       <div class="badges"><span class="new-badge" hidden>NOUVELLE</span><span class="source-badge"></span></div>
       <h2 class="title"></h2><p class="company"></p><p class="location"></p><p class="salary-mid"></p><p class="reason"></p>
       <div class="card-actions"><button class="details" type="button">Détails</button><button class="letter" type="button">Lettre</button><a class="open" target="_blank" rel="noopener">Ouvrir</a></div>
