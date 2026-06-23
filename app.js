@@ -7,19 +7,44 @@ function readableDate(value) { const date = new Date(value); return Number.isNaN
 function jobMatches(job) { const query = state.query.toLocaleLowerCase('fr'); const text = [job.title, job.company, job.location, job.source, job.reason].join(' ').toLocaleLowerCase('fr'); return (!query || text.includes(query)) && (!state.source || job.source === state.source) && (state.filter !== 'new' || job.isNew) && (state.filter !== 'favorites' || state.favorites.has(job.id)); }
 function orderedJobs() { return state.jobs.filter(jobMatches).sort((a,b) => { if (state.sort === 'new') return Number(b.isNew) - Number(a.isNew) || b.score - a.score; if (state.sort === 'company') return a.company.localeCompare(b.company, 'fr'); return b.score - a.score; }); }
 
+function mapLocationGroups(jobs) {
+  const groups = new Map();
+  jobs.forEach((job) => {
+    const lat = Number(job.coordinates?.lat); const lon = Number(job.coordinates?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    if (!groups.has(key)) groups.set(key, { lat, lon, jobs: [] });
+    groups.get(key).jobs.push(job);
+  });
+  return [...groups.values()];
+}
+
+function mapPopup(group) {
+  const popup = document.createElement('div'); popup.className = 'map-popup';
+  const first = group.jobs[0]; const location = first.location || first.countryLabel || 'Lieu public de l’annonce';
+  const heading = document.createElement('strong'); heading.textContent = `${group.jobs.length} offre${group.jobs.length > 1 ? 's' : ''} — ${location}`; popup.append(heading);
+  const hint = document.createElement('p'); hint.textContent = group.jobs.length > 1 ? 'Choisis une offre :' : 'Ouvre l’offre directement :'; popup.append(hint);
+  const list = document.createElement('div'); list.className = 'map-offer-list';
+  group.jobs.forEach((job) => {
+    const link = document.createElement('a'); link.className = 'map-offer-link'; link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
+    const title = document.createElement('span'); title.textContent = job.title;
+    const meta = document.createElement('small'); meta.textContent = `${job.company} · ${job.source}`;
+    link.append(title, meta); list.append(link);
+  });
+  popup.append(list); return popup;
+}
+
 function renderMap(jobs) {
-  const points = jobs.filter((job) => Number.isFinite(Number(job.coordinates?.lat)) && Number.isFinite(Number(job.coordinates?.lon)));
-  $('#map-summary').textContent = `${points.length} emplacement${points.length > 1 ? 's' : ''} affiché${points.length > 1 ? 's' : ''}`;
+  const groups = mapLocationGroups(jobs); const offerCount = groups.reduce((count, group) => count + group.jobs.length, 0);
+  $('#map-summary').textContent = `${groups.length} emplacement${groups.length > 1 ? 's' : ''} · ${offerCount} offre${offerCount > 1 ? 's' : ''}`;
   $('#map-notice').textContent = state.feed?.mapNotice || 'Les positions sont calculées à partir des lieux publics des annonces.';
   if (!window.L) { $('#map').textContent = 'La carte ne peut pas être chargée pour le moment.'; return; }
   if (!state.map) { state.map = L.map('map', { scrollWheelZoom: false }).setView([46.6, 2.4], 5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(state.map); state.markers = L.featureGroup().addTo(state.map); }
   state.markers.clearLayers();
   const bounds = [];
-  points.forEach((job) => {
-    const lat = Number(job.coordinates.lat); const lon = Number(job.coordinates.lon); const marker = L.circleMarker([lat, lon], { radius: 8, color: '#ffffff', weight: 2, fillColor: job.isNew ? '#087443' : '#075985', fillOpacity: 1 });
-    const popup = document.createElement('div'); popup.className = 'map-popup'; popup.innerHTML = `<strong>${escapeHtml(job.title)}</strong><span>${escapeHtml(job.company)} · ${escapeHtml(job.location || job.countryLabel)}</span>`;
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Voir la fiche'; button.addEventListener('click', () => { state.map.closePopup(); showDetails(job); }); popup.append(button);
-    marker.bindPopup(popup).addTo(state.markers); bounds.push([lat, lon]);
+  groups.forEach((group) => {
+    const marker = L.circleMarker([group.lat, group.lon], { radius: group.jobs.length > 1 ? 10 : 8, color: '#ffffff', weight: 2, fillColor: group.jobs.some((job) => job.isNew) ? '#087443' : '#075985', fillOpacity: 1 });
+    marker.bindPopup(mapPopup(group)).addTo(state.markers); bounds.push([group.lat, group.lon]);
   });
   if (bounds.length === 1) state.map.setView(bounds[0], 9); else if (bounds.length > 1) state.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 9 }); else state.map.setView([46.6, 2.4], 5);
   setTimeout(() => state.map.invalidateSize(), 0);
