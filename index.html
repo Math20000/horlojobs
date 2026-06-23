@@ -10,6 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ2SEPHhBUnfHMqK4M+AQa5V7U8dF9Q=" crossorigin="">
   <link rel="stylesheet" href="styles.css">
   <title>HorloJobs</title>
 </head>
@@ -20,10 +21,6 @@
   </header>
 
   <main>
-    <section id="install-tip" class="install-tip" hidden>
-      <strong>Installer l’app</strong><span>Dans Safari : Partager → Sur l’écran d’accueil.</span><button type="button" class="text-button" data-close-install>Fermer</button>
-    </section>
-
     <section class="stats" aria-label="Résumé du rapport">
       <article><strong id="total-offers">–</strong><span>offres</span></article>
       <article class="new-stat"><strong id="new-offers">–</strong><span>nouvelles</span></article>
@@ -41,6 +38,12 @@
         <button type="button" class="filter" data-filter="new">Nouvelles</button>
         <button type="button" class="filter" data-filter="favorites">Favoris</button>
       </div>
+    </section>
+
+    <section class="map-panel" aria-label="Carte des offres affichées">
+      <div class="map-heading"><div><h2>Carte des offres</h2><p id="map-summary">Chargement des emplacements…</p></div><span>⌖</span></div>
+      <div id="map" role="application" aria-label="Carte interactive des offres"></div>
+      <p id="map-notice" class="map-notice"></p>
     </section>
 
     <p id="result-count" class="result-count" aria-live="polite"></p>
@@ -61,10 +64,11 @@
     <article class="job-card">
       <div class="job-card-top"><span class="score"></span><button class="favorite" type="button" aria-label="Ajouter aux favoris">♡</button></div>
       <div class="badges"><span class="new-badge" hidden>NOUVELLE</span><span class="source-badge"></span></div>
-      <h2 class="title"></h2><p class="company"></p><p class="location"></p><p class="reason"></p>
-      <div class="card-actions"><button class="details" type="button">Voir l’offre</button><a class="open" target="_blank" rel="noopener">Ouvrir</a></div>
+      <h2 class="title"></h2><p class="company"></p><p class="location"></p><p class="salary-mid"></p><p class="reason"></p>
+      <div class="card-actions"><button class="details" type="button">Détails</button><button class="letter" type="button">Lettre</button><a class="open" target="_blank" rel="noopener">Ouvrir</a></div>
     </article>
   </template>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="app.js"></script>
 </body>
 </html>
