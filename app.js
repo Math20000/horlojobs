@@ -16,7 +16,7 @@ function renderMap(jobs) {
   state.markers.clearLayers();
   const bounds = [];
   points.forEach((job) => {
-    const lat = Number(job.coordinates.lat); const lon = Number(job.coordinates.lon); const marker = L.marker([lat, lon]);
+    const lat = Number(job.coordinates.lat); const lon = Number(job.coordinates.lon); const marker = L.circleMarker([lat, lon], { radius: 8, color: '#ffffff', weight: 2, fillColor: job.isNew ? '#087443' : '#075985', fillOpacity: 1 });
     const popup = document.createElement('div'); popup.className = 'map-popup'; popup.innerHTML = `<strong>${escapeHtml(job.title)}</strong><span>${escapeHtml(job.company)} · ${escapeHtml(job.location || job.countryLabel)}</span>`;
     const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Voir la fiche'; button.addEventListener('click', () => { state.map.closePopup(); showDetails(job); }); popup.append(button);
     marker.bindPopup(popup).addTo(state.markers); bounds.push([lat, lon]);
