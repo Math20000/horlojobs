@@ -25,11 +25,11 @@ function mapPopup(group) {
   const popup = document.createElement('div'); popup.className = 'map-popup';
   const first = group.jobs[0]; const location = first.location || first.countryLabel || 'Lieu public de l’annonce';
   const heading = document.createElement('strong'); heading.textContent = `${group.jobs.length} offre${group.jobs.length > 1 ? 's' : ''} — ${location}`; popup.append(heading);
-  const hint = document.createElement('p'); hint.textContent = group.jobs.length > 1 ? 'Choisis une offre :' : 'Ouvre l’offre directement :'; popup.append(hint);
+  const hint = document.createElement('p'); hint.textContent = 'Choisis une offre pour ouvrir sa fiche :'; popup.append(hint);
   const list = document.createElement('div'); list.className = 'map-offer-list';
   group.jobs.forEach((job) => {
     const row = document.createElement('div'); row.className = 'map-offer-row';
-    const link = document.createElement('a'); link.className = 'map-offer-link'; link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
+    const link = document.createElement('button'); link.type = 'button'; link.className = 'map-offer-link map-offer-button'; link.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); state.map.closePopup(); showDetails(job); });
     const title = document.createElement('span'); title.textContent = job.title;
     const meta = document.createElement('small'); meta.textContent = `${job.company} · ${job.source}`;
     const favorite = document.createElement('button'); favorite.type = 'button'; favorite.className = 'map-favorite'; const saved = state.favorites.has(job.id); favorite.textContent = saved ? '★' : '☆'; favorite.setAttribute('aria-label', saved ? `Retirer ${job.title} des favoris` : `Ajouter ${job.title} aux favoris`); favorite.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleFavorite(job); });
@@ -38,10 +38,10 @@ function mapPopup(group) {
   popup.append(list); return popup;
 }
 
-function openOfferFromMap(job) {
-  const tab = window.open(job.url, '_blank');
-  if (tab) tab.opener = null;
-  else window.location.assign(job.url);
+function mapMarkerIcon(group) {
+  const hasNew = group.jobs.some((job) => job.isNew);
+  const count = group.jobs.length > 1 ? `<span>${group.jobs.length}</span>` : '';
+  return L.divIcon({ className: 'job-map-marker-container', html: `<span class="job-map-marker ${hasNew ? 'is-new' : ''}">${count}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
 }
 
 function renderMap(jobs) {
@@ -53,8 +53,8 @@ function renderMap(jobs) {
   state.markers.clearLayers();
   const bounds = [];
   groups.forEach((group) => {
-    const marker = L.circleMarker([group.lat, group.lon], { radius: group.jobs.length > 1 ? 10 : 8, color: '#ffffff', weight: 2, fillColor: group.jobs.some((job) => job.isNew) ? '#087443' : '#075985', fillOpacity: 1 });
-    if (group.jobs.length === 1) marker.on('click', () => openOfferFromMap(group.jobs[0]));
+    const marker = L.marker([group.lat, group.lon], { icon: mapMarkerIcon(group), keyboard: true, riseOnHover: true, title: `${group.jobs.length} offre${group.jobs.length > 1 ? 's' : ''} à ${group.jobs[0].location || group.jobs[0].countryLabel || 'cet emplacement'}` });
+    if (group.jobs.length === 1) marker.on('click', () => showDetails(group.jobs[0]));
     else marker.bindPopup(mapPopup(group));
     marker.addTo(state.markers); bounds.push([group.lat, group.lon]);
   });
